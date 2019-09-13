@@ -1,0 +1,404 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import urllib.request\n",
+    "import zipfile\n",
+    "import random\n",
+    "import itertools\n",
+    "import math\n",
+    "from dask.distributed import Client, LocalCluster\n",
+    "import dask.dataframe as dd"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "Index(['VendorID', 'tpep_pickup_datetime', 'tpep_dropoff_datetime',\n",
+       "       'passenger_count', 'trip_distance', 'RatecodeID', 'store_and_fwd_flag',\n",
+       "       'PULocationID', 'DOLocationID', 'payment_type', 'fare_amount', 'extra',\n",
+       "       'mta_tax', 'tip_amount', 'tolls_amount', 'improvement_surcharge',\n",
+       "       'total_amount', 'congestion_surcharge'],\n",
+       "      dtype='object')"
+      ]
+     },
+     "execution_count": 8,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df=dd.read_csv('nyc.2019-01.csv')\n",
+    "df.columns"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sqlalchemy import create_engine\n",
+    "nyc_database = create_engine('sqlite:///nyc_database.db')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "urllib.request.urlretrieve(\"https://s3.amazonaws.com/nyc-tlc/misc/taxi_zones.zip\", \"taxi_zones.zip\")\n",
+    "with zipfile.ZipFile(\"taxi_zones.zip\",\"r\") as zip_ref:\n",
+    "    zip_ref.extractall(\"./shape\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>VendorID</th>\n",
+       "      <th>tpep_pickup_datetime</th>\n",
+       "      <th>tpep_dropoff_datetime</th>\n",
+       "      <th>passenger_count</th>\n",
+       "      <th>trip_distance</th>\n",
+       "      <th>RatecodeID</th>\n",
+       "      <th>store_and_fwd_flag</th>\n",
+       "      <th>PULocationID</th>\n",
+       "      <th>DOLocationID</th>\n",
+       "      <th>payment_type</th>\n",
+       "      <th>fare_amount</th>\n",
+       "      <th>extra</th>\n",
+       "      <th>mta_tax</th>\n",
+       "      <th>tip_amount</th>\n",
+       "      <th>tolls_amount</th>\n",
+       "      <th>improvement_surcharge</th>\n",
+       "      <th>total_amount</th>\n",
+       "      <th>congestion_surcharge</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>2019-01-01 00:46:40</td>\n",
+       "      <td>2019-01-01 00:53:20</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1.5</td>\n",
+       "      <td>1</td>\n",
+       "      <td>N</td>\n",
+       "      <td>151</td>\n",
+       "      <td>239</td>\n",
+       "      <td>1</td>\n",
+       "      <td>7.0</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>1.65</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.3</td>\n",
+       "      <td>9.95</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>2019-01-01 00:59:47</td>\n",
+       "      <td>2019-01-01 01:18:59</td>\n",
+       "      <td>1</td>\n",
+       "      <td>2.6</td>\n",
+       "      <td>1</td>\n",
+       "      <td>N</td>\n",
+       "      <td>239</td>\n",
+       "      <td>246</td>\n",
+       "      <td>1</td>\n",
+       "      <td>14.0</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>1.00</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.3</td>\n",
+       "      <td>16.30</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>2</td>\n",
+       "      <td>2</td>\n",
+       "      <td>2018-12-21 13:48:30</td>\n",
+       "      <td>2018-12-21 13:52:40</td>\n",
+       "      <td>3</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>N</td>\n",
+       "      <td>236</td>\n",
+       "      <td>236</td>\n",
+       "      <td>1</td>\n",
+       "      <td>4.5</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.00</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.3</td>\n",
+       "      <td>5.80</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>3</td>\n",
+       "      <td>2</td>\n",
+       "      <td>2018-11-28 15:52:25</td>\n",
+       "      <td>2018-11-28 15:55:45</td>\n",
+       "      <td>5</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>N</td>\n",
+       "      <td>193</td>\n",
+       "      <td>193</td>\n",
+       "      <td>2</td>\n",
+       "      <td>3.5</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.00</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.3</td>\n",
+       "      <td>7.55</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>4</td>\n",
+       "      <td>2</td>\n",
+       "      <td>2018-11-28 15:56:57</td>\n",
+       "      <td>2018-11-28 15:58:33</td>\n",
+       "      <td>5</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>2</td>\n",
+       "      <td>N</td>\n",
+       "      <td>193</td>\n",
+       "      <td>193</td>\n",
+       "      <td>2</td>\n",
+       "      <td>52.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.5</td>\n",
+       "      <td>0.00</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.3</td>\n",
+       "      <td>55.55</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   VendorID tpep_pickup_datetime tpep_dropoff_datetime  passenger_count  \\\n",
+       "0         1  2019-01-01 00:46:40   2019-01-01 00:53:20                1   \n",
+       "1         1  2019-01-01 00:59:47   2019-01-01 01:18:59                1   \n",
+       "2         2  2018-12-21 13:48:30   2018-12-21 13:52:40                3   \n",
+       "3         2  2018-11-28 15:52:25   2018-11-28 15:55:45                5   \n",
+       "4         2  2018-11-28 15:56:57   2018-11-28 15:58:33                5   \n",
+       "\n",
+       "   trip_distance  RatecodeID store_and_fwd_flag  PULocationID  DOLocationID  \\\n",
+       "0            1.5           1                  N           151           239   \n",
+       "1            2.6           1                  N           239           246   \n",
+       "2            0.0           1                  N           236           236   \n",
+       "3            0.0           1                  N           193           193   \n",
+       "4            0.0           2                  N           193           193   \n",
+       "\n",
+       "   payment_type  fare_amount  extra  mta_tax  tip_amount  tolls_amount  \\\n",
+       "0             1          7.0    0.5      0.5        1.65           0.0   \n",
+       "1             1         14.0    0.5      0.5        1.00           0.0   \n",
+       "2             1          4.5    0.5      0.5        0.00           0.0   \n",
+       "3             2          3.5    0.5      0.5        0.00           0.0   \n",
+       "4             2         52.0    0.0      0.5        0.00           0.0   \n",
+       "\n",
+       "   improvement_surcharge  total_amount  congestion_surcharge  \n",
+       "0                    0.3          9.95                   NaN  \n",
+       "1                    0.3         16.30                   NaN  \n",
+       "2                    0.3          5.80                   NaN  \n",
+       "3                    0.3          7.55                   NaN  \n",
+       "4                    0.3         55.55                   NaN  "
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df = pd.read_csv(\"nyc.2019-01.csv\", nrows=10)\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "j, chunksize = 1, 100000\n",
+    "for month in range(1,2):\n",
+    "    fp = \"nyc.2019-{0:0=2d}.csv\".format(month)\n",
+    "    for df in pd.read_csv(fp, chunksize=chunksize, iterator=True):\n",
+    "        df = df.rename(columns={c: c.replace(' ', '_') for c in df.columns})\n",
+    "        df['pickup_hour'] = [x[:13] for x in df['tpep_pickup_datetime']]\n",
+    "        df['dropoff_hour'] = [x[:13] for x in df['tpep_dropoff_datetime']]\n",
+    "        df.index += j\n",
+    "        df.to_sql('table_record', nyc_database, if_exists='append')\n",
+    "        j = df.index[-1] + 1\n",
+    "del df"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_pu = pd.read_sql_query('SELECT PULocationID AS LocationID, count(*) AS PUcount \\\n",
+    "                        FROM table_record \\\n",
+    "                        GROUP BY PULocationID', nyc_database)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_pu.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_pu = pd.read_sql_query('SELECT pickup_hour AS time, count(*) AS PUcount \\\n",
+    "                        FROM table_record \\\n",
+    "                        GROUP BY pickup_hour', nyc_database)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_do = pd.read_sql_query('SELECT dropoff_hour AS time, count(*) AS DOcount \\\n",
+    "                        FROM table_record \\\n",
+    "                        GROUP BY dropoff_hour', nyc_database)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_q2 = df_pu.merge(df_do, on=\"time\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "template = pd.DataFrame([\"{0:0=2d}\".format(x) for x in range(0,24)], columns=[\"time\"])\n",
+    "df_q2 = df_q2.join(template.set_index(\"time\"), how = 'outer', on=[\"time\"]).fillna(0) \\\n",
+    "                .groupby([\"time\"], as_index=False) \\\n",
+    "                .agg({'PUcount': 'sum', 'DOcount': 'sum'}) \\\n",
+    "                .rename(columns = {'PUcount':'Pick-ups', 'DOcount': 'Drop-offs'}) \\\n",
+    "                .sort_values(by='time')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "ax = df_q2.plot(x='time', y=['Pick-ups', 'Drop-offs'], kind='line', style=\"-o\", figsize=(15,5))\n",
+    "ax.set_ylabel(\"count\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_pu.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_do.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
